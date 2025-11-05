@@ -1,10 +1,17 @@
 using Auth.Api;
+using Auth.Api.Validators;
+using FluentValidation.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllers()
     .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new Auth.ApiConvertes.StringConverter())); //Remove white space at json in controllers
+
+//Fluent Validation
+builder.Services.AddControllers().AddFluentValidation(fv =>
+    fv.RegisterValidatorsFromAssemblyContaining<RegisterValidator>());
+
 
 // Chama os métodos de configuração modularizados
 builder.Services.AddCorsPolicy();

@@ -28,9 +28,6 @@ public class AuthService : IAuthService
 
     public async Task<ResponseModel> ForgotPassword(RequestForgotPassword request)
     {
-        if (!_emailValidator.IsValidEmail(request.Email!))
-            return new ResponseModel("The email provided is invalid.", StatusCodes.Status400BadRequest);
-
         var user = await _authRepository.GetUserBy(request.Email!, SearchUserBy.Email);
         if (user is null)
             return new ResponseModel("User not found.", StatusCodes.Status404NotFound);
@@ -49,9 +46,6 @@ public class AuthService : IAuthService
 
     public async Task<ResponseModel> Login(RequestUserLogin user)
     {
-        if (string.IsNullOrWhiteSpace(user.Name) || string.IsNullOrWhiteSpace(user.Password))
-            return new ResponseModel("Name and password cannot be empty.", StatusCodes.Status400BadRequest);
-
         var userDb = await _authRepository.GetUserBy(user.Name!, SearchUserBy.Name);    
         if (userDb is null)
             return new ResponseModel("User not found.", StatusCodes.Status404NotFound);
@@ -70,21 +64,6 @@ public class AuthService : IAuthService
 
     public async Task<ResponseModel> Register(RequestRegister request)
     {
-        if (string.IsNullOrWhiteSpace(request.Name))
-            return new ResponseModel("Name cannot be empty.", StatusCodes.Status400BadRequest);
-
-        if (string.IsNullOrWhiteSpace(request.Email))
-            return new ResponseModel("The email cannot be empty.", StatusCodes.Status400BadRequest);
-
-        if (!_emailValidator.IsValidEmail(request.Email!))
-            return new ResponseModel("The email provided is invalid.", StatusCodes.Status400BadRequest);
-
-        if (request.Password != request.ConfirmPassword)
-            return new ResponseModel("Passwords do not match.", StatusCodes.Status400BadRequest);
-
-        if (_authRepository.ExistsUser(request.Email).Result)
-            return new ResponseModel("User already exists.", StatusCodes.Status400BadRequest);
-
         request.Password = _passwordHasher.HashPassword(request.Password!);
         request.UserIdentifier = Guid.NewGuid();
 
@@ -102,12 +81,6 @@ public class AuthService : IAuthService
 
     public async Task<ResponseModel> ResetPassword(RequestResetPassword request)
     {
-        if (!_emailValidator.IsValidEmail(request.Email!))
-            return new ResponseModel("The email provided is invalid.", StatusCodes.Status400BadRequest);
-
-        if (request.Password != request.ConfirmPassword)
-            return new ResponseModel("Passwords do not match.", StatusCodes.Status400BadRequest);
-
         var user = await _authRepository.GetUserBy(request.Email!, SearchUserBy.Email);
         if (user == null)
             return new ResponseModel("User not found.", StatusCodes.Status404NotFound);
