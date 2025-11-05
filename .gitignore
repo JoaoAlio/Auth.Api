@@ -1,0 +1,76 @@
+﻿# Build results
+bin/
+obj/
+out/
+[Bb]uild/
+[Ll]og/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Visual Studio Code
+.vscode/
+
+# Rider
+.idea/
+
+# ASP.NET Scaffolding
+ScaffoldingReadMe.txt
+
+# User-specific files
+*.rsuser
+*.sln.docstates
+*.userprefs
+
+# Backup & reports
+*.bak
+*.backup
+*.log
+*.tlog
+*.tmp
+
+# NuGet
+*.nupkg
+*.snupkg
+*.nuspec
+packages/
+*.nuget.props
+*.nuget.targets
+
+# Entity Framework Migrations
+Migrations/obj/
+
+# Docker
+**/Dockerfile.*
+**/docker-compose.*
+
+# Publish folder
+publish/
+PublishProfiles/
+
+# Test results
+TestResults/
+*.trx
+
+# Ignore local secrets and environment configs
+secrets.json
+appsettings.Development.json
+appsettings.Local.json
+.env
+.env.*
+
+# OneDrive temporary files
+~$*
+
+# Windows-specific
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ReSharper
+_ReSharper*/
+*.DotSettings.user
