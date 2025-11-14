@@ -12,6 +12,6 @@ public class Enums
     {
         Id = 1,
         Name = 2,
-        Email = 3,
+        Email = 3
     }
 }

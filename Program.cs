@@ -6,17 +6,14 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllers()
-    .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new Auth.ApiConvertes.StringConverter())); //Remove white space at json in controllers
-
-//Fluent Validation
-builder.Services.AddControllers().AddFluentValidation(fv =>
-    fv.RegisterValidatorsFromAssemblyContaining<RegisterValidator>());
+    .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new Auth.ApiConvertes.StringConverter())) //Remove white space at json in controllers
+    .AddFluentValidation(fv => fv.RegisterValidatorsFromAssemblyContaining<RegisterValidator>());
 
 
 // Chama os métodos de configuração modularizados
 builder.Services.AddCorsPolicy();
 builder.Services.AddDatabase(builder.Configuration);
-builder.Services.AddAuthenticationService(builder.Configuration);
+builder.Services.AddJwtAuth(builder.Configuration);
 builder.Services.AddSwaggerService();
 builder.Services.AddRepositories(builder.Configuration);
 builder.Services.AddGoogleAuthentication(builder.Configuration);

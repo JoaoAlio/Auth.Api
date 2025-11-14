@@ -46,15 +46,14 @@ public class AuthService : IAuthService
 
     public async Task<ResponseModel> Login(RequestUserLogin user)
     {
-        var userDb = await _authRepository.GetUserBy(user.Name!, SearchUserBy.Name);    
+        var userDb = await _authRepository.GetUserBy(user.Email!, SearchUserBy.Email);    
         if (userDb is null)
             return new ResponseModel("User not found.", StatusCodes.Status404NotFound);
 
-        if (userDb.Name != user.Name || !_passwordHasher.VerifyPassword(userDb.Password!, user.Password!))
+        if (userDb.Email != user.Email || !_passwordHasher.VerifyPassword(userDb.Password!, user.Password!))
             return new ResponseModel("invalid username or password.", StatusCodes.Status400BadRequest);
 
-        var data = new { Name = userDb.Name, AccessToken = _acessTokenGenerator.Generate(userDb.UserIdentifier) };
-        return new ResponseModel("Login successful.", StatusCodes.Status200OK, data);
+        return new ResponseModel("Login successful.", StatusCodes.Status200OK);
     }
 
     public async Task<string> Logout()
@@ -92,6 +91,11 @@ public class AuthService : IAuthService
         await _authRepository.UpdateAsync(user);
 
         return new ResponseModel("Your password has been changed successfully.", StatusCodes.Status200OK);
+    }
+
+    public async Task<User?> GetUserBy(string filter, SearchUserBy searchUserBy, bool asNoTracking = true)
+    {
+        return await _authRepository.GetUserBy(filter, searchUserBy, asNoTracking);
     }
 
 }

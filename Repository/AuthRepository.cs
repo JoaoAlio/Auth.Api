@@ -6,10 +6,10 @@ using static Auth.Api.Enums;
 
 namespace Auth.Api.Repository;
 
-public class AuthRepository : IAuthRepository
+public class AuthRepository : GenericRepository<User>, IAuthRepository
 {
     private readonly DataContext _context;
-    public AuthRepository(DataContext context)
+    public AuthRepository(DataContext context) : base(context)
     {
         _context = context;
     }
@@ -21,15 +21,26 @@ public class AuthRepository : IAuthRepository
 
     public async Task<User?> GetUserBy(string filter, SearchUserBy searchUserBy, bool asNoTracking = true)
     {
-        if (searchUserBy.Equals(SearchUserBy.Id))
+        if (searchUserBy == SearchUserBy.Id)
         {
-            return await _context.Users.AsNoTracking()
-                .FirstOrDefaultAsync(u => u.Id.Equals(filter));
+            if (!int.TryParse(filter, out int id))
+                return null;
+
+            if (asNoTracking)
+                return await _context.Users.AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.Id == id);
+
+            return await _context.Users
+                    .FirstOrDefaultAsync(u => u.Id == id);
         }
 
         if (searchUserBy.Equals(SearchUserBy.Name))
         {
-            return await _context.Users.AsNoTracking()
+            if (asNoTracking)
+                return await _context.Users.AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.Name.Equals(filter));
+            else
+                return await _context.Users
                 .FirstOrDefaultAsync(u => u.Name.Equals(filter));
         }
 
@@ -43,18 +54,5 @@ public class AuthRepository : IAuthRepository
         }
 
         return null;
-    }
-
-    public async Task<bool> SaveAsync(User user)
-    {
-        await _context.Users.AddAsync(user);
-        var result = await _context.SaveChangesAsync();
-        return result > 0;
-    }
-
-    public async Task UpdateAsync(User user)
-    {
-        _context.Users.Update(user);
-        await _context.SaveChangesAsync();
     }
 }

@@ -4,6 +4,7 @@ using Auth.Api.Repository;
 using Auth.Api.Security.Tokens;
 using Auth.Api.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -32,22 +33,29 @@ public static class StartupExtensions
             options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
     }
 
-    public static void AddAuthenticationService(this IServiceCollection services, IConfiguration configuration)
+    public static void AddJwtAuth(this IServiceCollection services, IConfiguration config)
     {
-        services.AddAuthentication("Bearer")
-            .AddJwtBearer(options =>
+        var key = config["Settings:Jwt:Key"] ?? throw new InvalidOperationException("Jwt:Key não configurado");
+        var issuer = config["Settings:Jwt:Issuer"] ?? "your-issuer";
+
+        services.AddAuthentication(options =>
+        {
+            options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+            options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+        })
+        .AddJwtBearer(options =>
+        {
+            options.RequireHttpsMetadata = true;
+            options.SaveToken = true;
+            options.TokenValidationParameters = new TokenValidationParameters
             {
-                options.TokenValidationParameters = new TokenValidationParameters
-                {
-                    ValidateIssuer = true,
-                    ValidateAudience = true,
-                    ValidateLifetime = true,
-                    ValidateIssuerSigningKey = true,
-                    ValidIssuer = configuration["Settings:Jwt:Issuer"],
-                    ValidAudience = configuration["Settings:Jwt:Audience"],
-                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(configuration["Settings:Jwt:Key"])),
-                };
-            });
+                ValidateIssuer = true,
+                ValidateAudience = false,
+                ValidateIssuerSigningKey = true,
+                ValidIssuer = issuer,
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key))
+            };
+        });
     }
 
     public static void AddSwaggerService(this IServiceCollection services)
@@ -99,6 +107,8 @@ public static class StartupExtensions
         services.AddScoped<IEmailValidator, EmailValidator>();
         services.AddScoped<IPasswordHash, PasswordHash>();
         services.AddScoped<IGoogleService, GoogleService>();
+        services.AddScoped<IRefreshTokenService, RefreshTokenService>();
+        services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
     }
 
     public static void AddGoogleAuthentication(this IServiceCollection services, IConfiguration configuration)

@@ -1,4 +1,4 @@
-﻿ using Auth.Api.DTOs;
+﻿using Auth.Api.DTOs;
 using Auth.Api.Interfaces;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Google;
@@ -11,14 +11,18 @@ namespace Auth.ApiControllers;
 [Route("[controller]")]
 public class AuthController : Controller
 {
-    public readonly IAuthService _authService;
-    public readonly IGoogleService _googleService;
+    private readonly IAuthService _authService;
+    private readonly IGoogleService _googleService;
+    private readonly IRefreshTokenService _refreshTokenService;
+    private readonly IAcessTokenGenerator _accessTokenGenerator;
 
-    public AuthController(IAuthService authService, IGoogleService googleService)
+    public AuthController(IAuthService authService, IGoogleService googleService,
+        IRefreshTokenService refreshTokenService, IAcessTokenGenerator accessTokenGenerator)
     {
         _authService = authService;
         _googleService = googleService;
-
+        _refreshTokenService = refreshTokenService;
+        _accessTokenGenerator = accessTokenGenerator;
     }
 
     [HttpPost("register")]
@@ -28,7 +32,13 @@ public class AuthController : Controller
             return BadRequest(ModelState);
 
         var result = await _authService.Register(request);
-        return result.StatusCode == StatusCodes.Status200OK ? Ok(result.Message) : BadRequest(result.Message);
+        if (result.StatusCode != StatusCodes.Status200OK)
+        {
+            return  BadRequest(result.Message);
+        }
+
+        return Ok(result.Message);
+
     }
 
     [HttpPost("login")]
@@ -38,8 +48,29 @@ public class AuthController : Controller
             return BadRequest(ModelState);
 
         var result = await _authService.Login(user);
-        return result.StatusCode == StatusCodes.Status200OK ? Ok(result.Data) 
-            : result.StatusCode == StatusCodes.Status404NotFound ? NotFound(result.Message) : BadRequest(result.Message);
+        if (result.StatusCode != StatusCodes.Status200OK)
+        {
+            return result.StatusCode == StatusCodes.Status404NotFound ? NotFound(result.Message) : BadRequest(result.Message);
+        }
+
+        var userDb = await _authService.GetUserBy(user.Email!, Auth.Api.Enums.SearchUserBy.Email, false);
+        if (userDb == null)
+            return BadRequest("User not found after login.");
+
+        var acessToken = _accessTokenGenerator.Generate(userDb.UserIdentifier);
+        var refresh = await _refreshTokenService.GenerateRefreshTokenAsync(userDb.Id);
+
+        var response = new ResponseUserLogin
+        {
+            Name = userDb.Name,
+            Tokens = new ResponseTokensJson
+            {
+                AccessToken = acessToken,
+                RefreshToken = refresh.Token
+            }
+        };
+
+        return Ok(response);
     }
 
     [HttpGet("google")]
@@ -72,8 +103,13 @@ public class AuthController : Controller
             return BadRequest(ModelState);
 
         var result = await _authService.ForgotPassword(request);
-        return result.StatusCode == StatusCodes.Status200OK ? Ok(result.Data)
-            : result.StatusCode == StatusCodes.Status404NotFound ? NotFound(result.Message) : BadRequest(result.Message);
+
+        if (result.StatusCode != StatusCodes.Status200OK)
+        {
+            return result.StatusCode == StatusCodes.Status404NotFound ? NotFound(result.Message) : BadRequest(result.Message);
+        }
+
+        return Ok(result.Data);
     }
 
     [HttpPost("reset-password")]
@@ -83,8 +119,58 @@ public class AuthController : Controller
             return BadRequest(ModelState);
 
         var result = await _authService.ResetPassword(request);
-        return result.StatusCode == StatusCodes.Status200OK ? Ok(result.Data)
-            : result.StatusCode == StatusCodes.Status404NotFound ? NotFound(result.Message) : BadRequest(result.Message);
+        if (result.StatusCode != StatusCodes.Status200OK)
+        {
+            return result.StatusCode == StatusCodes.Status404NotFound ? NotFound(result.Message) : BadRequest(result.Message);
+        }
+
+        return Ok(result.Data);
+
+    }
+    [HttpPost("refresh")]
+    public async Task<IActionResult> Refresh([FromBody] RequestRefreshToken request)
+    {
+        if (string.IsNullOrWhiteSpace(request.RefreshToken))
+            return BadRequest("RefreshToken is required.");
+
+        var existing = await _refreshTokenService.GetByTokenAsync(request.RefreshToken);
+        if (existing == null || !existing.IsActive)
+            return Unauthorized("Invalid refresh token.");
+
+        var user = await _authService.GetUserBy(existing.UserId.ToString(), Auth.Api.Enums.SearchUserBy.Id, false);
+        if (user == null)
+            return Unauthorized("User not found.");
+
+        await _refreshTokenService.RevokeTokenAsync(request.RefreshToken);
+        var newRefresh = await _refreshTokenService.GenerateRefreshTokenAsync(existing.UserId);
+        var newAccess = _accessTokenGenerator.Generate(user.UserIdentifier);
+
+        return Ok(new ResponseTokensJson
+        {
+            AccessToken = newAccess,
+            RefreshToken = newRefresh.Token
+        });
+    }
+
+    [HttpPost("logout")]
+    public async Task<IActionResult> Logout([FromBody] RequestRefreshToken request)
+    {
+        if (request == null || string.IsNullOrWhiteSpace(request.RefreshToken))
+            return BadRequest("RefreshToken is required.");
+
+        var existing = await _refreshTokenService.GetByTokenAsync(request.RefreshToken);
+        if (existing == null || !existing.IsActive)
+            return Unauthorized("Invalid refresh token.");
+
+        var user = await _authService.GetUserBy(existing.UserId.ToString(), Auth.Api.Enums.SearchUserBy.Id, false);
+        if (user == null)
+            return Unauthorized("User not found.");
+
+         var revoked = await _refreshTokenService.RevokeAllForUserAsync(user.Id);
+        if (!revoked)
+            return BadRequest("Invalid or already revoked refresh token.");
+
+        return Ok(new { message = "Logout successfully" });
     }
 
 }
